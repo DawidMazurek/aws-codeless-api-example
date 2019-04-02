@@ -1,0 +1,51 @@
+image:
+  name: hashicorp/terraform:light
+  entrypoint:
+    - '/usr/bin/env'
+    - 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+stages:
+  - deploy development
+  - deploy staging
+  - deploy production
+
+
+deploydevelopment:
+  stage: deploy development
+  script:
+    - sh ./scripts/deploy_development.sh
+  environment:
+    name: development
+  except:
+    refs:
+    - master
+
+deploystaging:
+  stage: deploy staging
+  script:
+    - sh ./scripts/deploy_staging.sh
+  environment:
+    name: staging
+  only:
+    refs:
+      - master
+
+checkproduction:
+  stage: deploy production
+  script:
+    - sh ./scripts/check_production.sh
+  environment:
+    name: production
+  only:
+    refs:
+      - master
+
+deployproduction:
+  stage: deploy production
+  when: manual
+  script:
+    - sh ./scripts/deploy_production.sh
+  environment:
+    name: production
+  only:
+    refs:
+      - master
