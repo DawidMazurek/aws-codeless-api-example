@@ -22,7 +22,7 @@ resource "aws_cognito_resource_server" "ApiClientsResourceServer" {
 }
 
 resource "aws_cognito_user_pool_domain" "UserPoolDomainFrankfurt" {
-  domain       = "carplates-api-auth-${var.stage}"
+  domain       = "car-plates-api-auth-${var.stage}"
   user_pool_id = "${aws_cognito_user_pool.ApiUsers.id}"
 }
 
