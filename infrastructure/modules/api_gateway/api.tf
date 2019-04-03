@@ -3,10 +3,26 @@ resource "aws_api_gateway_rest_api" "CarPlatesAPI" {
   description = "Api allowing to check if there are car plates h"
 }
 
+
 resource "aws_api_gateway_resource" "plate" {
   rest_api_id = "${aws_api_gateway_rest_api.CarPlatesAPI.id}"
   parent_id   = "${aws_api_gateway_rest_api.CarPlatesAPI.root_resource_id}"
   path_part   = "plate"
+}
+
+resource "aws_api_gateway_method" "AddCarPlate" {
+  rest_api_id   = "${aws_api_gateway_rest_api.CarPlatesAPI.id}"
+  resource_id   = "${aws_api_gateway_resource.plate.id}"
+  http_method   = "POST"
+  authorization = "COGNITO_USER_POOLS"
+  authorization_scopes = ["ApiGateway/api.write"]
+  authorizer_id = "${aws_api_gateway_authorizer.CognitoAuthorizer.id}"
+}
+
+resource "aws_api_gateway_resource" "platenumber" {
+  rest_api_id = "${aws_api_gateway_rest_api.CarPlatesAPI.id}"
+  parent_id   = "${aws_api_gateway_resource.plate.id}"
+  path_part   = "{platenumber}"
 }
 
 resource "aws_api_gateway_method" "FindCarPlate" {
@@ -16,12 +32,6 @@ resource "aws_api_gateway_method" "FindCarPlate" {
   authorization = "COGNITO_USER_POOLS"
   authorization_scopes = ["ApiGateway/api.read"]
   authorizer_id = "${aws_api_gateway_authorizer.CognitoAuthorizer.id}"
-}
-
-resource "aws_api_gateway_resource" "platenumber" {
-  rest_api_id = "${aws_api_gateway_rest_api.CarPlatesAPI.id}"
-  parent_id   = "${aws_api_gateway_resource.plate.id}"
-  path_part   = "{platenumber}"
 }
 
 resource "aws_api_gateway_integration" "FindCarPlateIntegration" {
@@ -48,19 +58,51 @@ EOF
   }
 }
 
-resource "aws_api_gateway_method_response" "200" {
+resource "aws_api_gateway_integration" "AddCarPlateIntegration" {
+  rest_api_id          = "${aws_api_gateway_rest_api.CarPlatesAPI.id}"
+  resource_id          = "${aws_api_gateway_resource.plate.id}"
+  http_method          = "${aws_api_gateway_method.AddCarPlate.http_method}"
+  integration_http_method = "POST"
+  type                 = "AWS"
+  uri = "arn:aws:apigateway:${var.region}:dynamodb:action/PutItem"
+  credentials = "${var.api_iam_role_arn}"
+
+  request_templates = {
+    "application/json" = <<EOF
+{
+  "TableName": "carPlates",
+  "Item": {
+    "platenumber": {
+      "S": $input.json('platenumber')
+    }
+  }
+}
+EOF
+  }
+}
+
+resource "aws_api_gateway_method_response" "Found" {
   rest_api_id = "${aws_api_gateway_rest_api.CarPlatesAPI.id}"
   resource_id = "${aws_api_gateway_resource.platenumber.id}"
   http_method = "${aws_api_gateway_method.FindCarPlate.http_method}"
   status_code = "200"
 }
 
+resource "aws_api_gateway_method_response" "Created" {
+  rest_api_id = "${aws_api_gateway_rest_api.CarPlatesAPI.id}"
+  resource_id = "${aws_api_gateway_resource.plate.id}"
+  http_method = "${aws_api_gateway_method.AddCarPlate.http_method}"
+  status_code = "204"
+}
+
+
+
 resource "aws_api_gateway_integration_response" "CarPlateFound" {
   depends_on = ["aws_api_gateway_integration.FindCarPlateIntegration"]
   rest_api_id = "${aws_api_gateway_rest_api.CarPlatesAPI.id}"
   resource_id = "${aws_api_gateway_resource.platenumber.id}"
   http_method = "${aws_api_gateway_method.FindCarPlate.http_method}"
-  status_code = "${aws_api_gateway_method_response.200.status_code}"
+  status_code = "${aws_api_gateway_method_response.Found.status_code}"
 
   response_templates {
     "application/json" = <<EOF
@@ -69,6 +111,21 @@ resource "aws_api_gateway_integration_response" "CarPlateFound" {
 EOF
   }
 }
+
+resource "aws_api_gateway_integration_response" "CarPlateCreated" {
+  depends_on = ["aws_api_gateway_integration.AddCarPlateIntegration"]
+  rest_api_id = "${aws_api_gateway_rest_api.CarPlatesAPI.id}"
+  resource_id = "${aws_api_gateway_resource.plate.id}"
+  http_method = "${aws_api_gateway_method.AddCarPlate.http_method}"
+  status_code = "${aws_api_gateway_method_response.Created.status_code}"
+
+  selection_pattern = ".*"
+
+  response_templates {
+    "application/json" = ""
+  }
+}
+
 
 resource "aws_api_gateway_authorizer" "CognitoAuthorizer" {
   name = "CognitoAuthorizer"
@@ -79,7 +136,7 @@ resource "aws_api_gateway_authorizer" "CognitoAuthorizer" {
 }
 
 resource "aws_api_gateway_deployment" "CarPlateApiDeployment" {
-  depends_on = ["aws_api_gateway_integration.FindCarPlateIntegration"]
+  depends_on = ["aws_api_gateway_integration.FindCarPlateIntegration", "aws_api_gateway_integration.AddCarPlateIntegration"]
 
   rest_api_id = "${aws_api_gateway_rest_api.CarPlatesAPI.id}"
   stage_name  = "${var.stage}"

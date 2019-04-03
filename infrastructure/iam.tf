@@ -90,7 +90,7 @@ resource "aws_iam_role_policy" "DBAccessPolicy" {
         },
         {
           "Effect": "Allow",
-          "Action": ["dynamodb:Query"],
+          "Action": ["dynamodb:Query", "dynamodb:PutItem"],
           "Resource": ["${aws_dynamodb_table.carplates-dublin.arn}", "${aws_dynamodb_table.carplates-frankfurt.arn}"]
         }
     ]

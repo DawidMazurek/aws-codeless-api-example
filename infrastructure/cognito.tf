@@ -12,7 +12,12 @@ resource "aws_cognito_resource_server" "ApiClientsResourceServer" {
 
   scope {
     scope_name        = "api.read"
-    scope_description = "Access to car plates api"
+    scope_description = "Access to car plates api reads"
+  }
+
+  scope {
+    scope_name        = "api.write"
+    scope_description = "Access to car plates api writes"
   }
 }
 
@@ -30,7 +35,7 @@ resource "aws_cognito_user_pool_client" "api-client" {
   generate_secret = true
   allowed_oauth_flows_user_pool_client = true
   allowed_oauth_flows = ["client_credentials"]
-  allowed_oauth_scopes = ["ApiGateway/api.read"]
+  allowed_oauth_scopes = ["ApiGateway/api.read", "ApiGateway/api.write"]
 
   user_pool_id = "${aws_cognito_user_pool.ApiUsers.id}"
 }
